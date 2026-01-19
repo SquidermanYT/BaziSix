@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { UserProfile, FortuneResult, InputMode } from './types';
-import { analyzeProvidedBazi, getLuckyNumbers, getBaziFromSolar } from './services/geminiService';
-import { verifyBaziPillar, validateAndFixBazi } from './anners';
+import { analyzeProvidedBazi, getLuckyNumbers } from './services/geminiService';
+import { getBaziLocally, validateDayPillarLocally, getUpcomingMarkSixDates } from './services/calendarService';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -10,13 +9,14 @@ const App: React.FC = () => {
   const [fortune, setFortune] = useState<FortuneResult | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('solar');
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
-  const [correctionApplied, setCorrectionApplied] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
 
   const handleOnboard = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setValidationMsg(null);
-    setCorrectionApplied(null);
+    setInfoMsg(null);
+    
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
 
@@ -28,15 +28,13 @@ const App: React.FC = () => {
         birthDate = formData.get('birthDate') as string;
         birthTime = formData.get('birthTime') as string;
         
-        // 使用 Google Search Grounding 進行高精度轉換
-        const accurateBazi = await getBaziFromSolar(birthDate, birthTime);
+        const localBazi = getBaziLocally(birthDate, birthTime);
+        year = localBazi.yearPillar;
+        month = localBazi.monthPillar;
+        day = localBazi.dayPillar;
+        hour = localBazi.hourPillar;
         
-        year = accurateBazi.yearPillar;
-        month = accurateBazi.monthPillar;
-        day = accurateBazi.dayPillar;
-        hour = accurateBazi.hourPillar;
-        
-        setCorrectionApplied(`已利用 Google 搜尋查閱萬年曆，確保排盤精確。`);
+        setInfoMsg(`已使用本地高精度萬年曆數據庫完成排盤。`);
       } else {
         year = formData.get('year') as string;
         month = formData.get('month') as string;
@@ -45,9 +43,9 @@ const App: React.FC = () => {
         birthDate = formData.get('verifyDate') as string;
 
         if (birthDate) {
-          const check = await verifyBaziPillar(birthDate, day);
-          if (!check.isValid) {
-            setValidationMsg(check.message);
+          const isDayValid = validateDayPillarLocally(birthDate, day);
+          if (!isDayValid) {
+            setValidationMsg(`所選日期與輸入的日柱 [${day}] 不符，請檢查輸入。`);
             setLoading(false);
             return;
           }
@@ -66,7 +64,7 @@ const App: React.FC = () => {
       });
     } catch (err) {
       console.error(err);
-      alert("計算失敗，請檢查輸入內容。");
+      alert("分析失敗，請重試。");
     } finally {
       setLoading(false);
     }
@@ -76,10 +74,15 @@ const App: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const result = await getLuckyNumbers(user);
+      // 1. 使用本地庫獲取未來一週可能的攪珠日及日柱
+      const candidates = getUpcomingMarkSixDates();
+      
+      // 2. 將候選日期傳給 Gemini 進行號碼生成與日期挑選
+      const result = await getLuckyNumbers(user, candidates);
       setFortune(result);
     } catch (err) {
       console.error(err);
+      alert("計算號碼時發生錯誤，請檢查網路連線。");
     } finally {
       setLoading(false);
     }
@@ -146,8 +149,8 @@ const App: React.FC = () => {
             )}
 
             {validationMsg && (
-              <div className="p-4 bg-red-900/20 border border-red-900/50 rounded-xl animate-in fade-in zoom-in">
-                <p className="text-xs text-red-400 font-medium italic leading-relaxed">提示：{validationMsg}</p>
+              <div className="p-4 bg-red-900/20 border border-red-900/50 rounded-xl">
+                <p className="text-xs text-red-400 font-medium italic">{validationMsg}</p>
               </div>
             )}
 
@@ -156,7 +159,7 @@ const App: React.FC = () => {
               disabled={loading}
               className="w-full bg-amber-600 hover:bg-amber-500 py-4 rounded-xl font-black text-stone-950 shadow-lg active:scale-95 transition-all uppercase tracking-[0.2em]"
             >
-              {loading ? '查閱萬年曆中...' : '排盤分析'}
+              {loading ? '命理分析中...' : '排盤分析'}
             </button>
           </form>
         </div>
@@ -175,19 +178,17 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-2xl mx-auto p-6 space-y-10">
-        {/* Correction Feedback */}
-        {correctionApplied && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 animate-in fade-in slide-in-from-top">
-            <p className="text-xs text-amber-500 font-bold italic">✨ {correctionApplied}</p>
+        {infoMsg && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+            <p className="text-xs text-amber-500 font-bold italic">✨ {infoMsg}</p>
           </div>
         )}
 
-        {/* Bazi Pillars */}
         <section className="bg-stone-900/60 rounded-3xl p-6 border border-stone-800 shadow-xl relative overflow-hidden backdrop-blur-sm">
           <div className="absolute -top-10 -right-10 opacity-5 text-[12rem] font-serif text-amber-500 pointer-events-none select-none">命</div>
           <div className="flex justify-between items-center mb-6">
              <h3 className="text-amber-500 text-[10px] font-black uppercase tracking-[0.4em]">命主四柱命盤</h3>
-             <span className="text-[9px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold uppercase tracking-tighter">已查閱權威萬年曆</span>
+             <span className="text-[9px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold uppercase tracking-tighter">本地高精度數據庫</span>
           </div>
           <div className="grid grid-cols-4 gap-2 mb-8">
             {[
@@ -225,7 +226,6 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Action Result */}
         <section className="text-center space-y-6">
           {!fortune ? (
             <div className="py-10">
@@ -258,8 +258,8 @@ const App: React.FC = () => {
                    </div>
                    <div className="bg-amber-950/20 border border-amber-900/30 p-5 rounded-2xl">
                      <div className="flex justify-between items-start">
-                        <p className="text-[10px] text-amber-600 font-black uppercase mb-2">建議攪珠日期</p>
-                        <span className="text-[8px] bg-green-500/20 text-green-400 px-1 rounded font-bold">已核對官網</span>
+                        <p className="text-[10px] text-amber-600 font-black uppercase mb-2">建議開運日期</p>
+                        <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1 rounded font-bold uppercase">本地數據庫計算</span>
                      </div>
                      <p className="text-xl font-serif font-black text-amber-100">{fortune.auspiciousDate}</p>
                    </div>
@@ -271,25 +271,9 @@ const App: React.FC = () => {
                      {fortune.explanation}
                    </p>
                  </div>
-
-                 {/* Displaying Grounding Sources as requested */}
-                 {fortune.sources && fortune.sources.length > 0 && (
-                   <div className="mt-6 text-left border-t border-stone-800 pt-4">
-                     <p className="text-[9px] text-stone-500 uppercase font-black mb-2 tracking-widest">數據來源 (Google 搜尋校驗)</p>
-                     <ul className="space-y-1">
-                       {fortune.sources.map((source, idx) => (
-                         <li key={idx}>
-                           <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-amber-700 hover:text-amber-500 transition-colors underline truncate block">
-                             {source.title || source.uri}
-                           </a>
-                         </li>
-                       ))}
-                     </ul>
-                   </div>
-                 )}
                  
                  <button 
-                  onClick={() => { setFortune(null); setUser(null); setValidationMsg(null); setCorrectionApplied(null); }}
+                  onClick={() => { setFortune(null); setUser(null); setValidationMsg(null); setInfoMsg(null); }}
                   className="mt-8 text-[10px] text-stone-600 uppercase font-black hover:text-amber-500 tracking-widest transition-colors"
                  >
                    重新排盤
@@ -300,7 +284,6 @@ const App: React.FC = () => {
         </section>
       </main>
 
-      {/* Global Loading */}
       {loading && (
         <div className="fixed inset-0 z-[100] bg-stone-950/90 flex flex-col items-center justify-center space-y-6">
           <div className="w-20 h-20 relative">
@@ -308,17 +291,17 @@ const App: React.FC = () => {
              <div className="absolute inset-0 border-4 border-t-amber-500 rounded-full animate-spin"></div>
           </div>
           <div className="text-center">
-            <p className="text-amber-500 font-serif font-black tracking-[0.4em] text-sm animate-pulse">查閱萬年曆與攪珠資料...</p>
-            <p className="text-stone-600 text-[10px] uppercase font-bold mt-2">正在透過 Google 搜尋確保排盤百分百準確</p>
+            <p className="text-amber-500 font-serif font-black tracking-[0.4em] text-sm animate-pulse">命理推算中...</p>
+            <p className="text-stone-600 text-[10px] uppercase font-bold mt-2">完全由本地萬年曆數據驅動分析</p>
           </div>
         </div>
       )}
 
       <footer className="text-center py-12 px-6 max-w-lg mx-auto border-t border-stone-900 mt-10">
         <p className="text-[10px] text-stone-700 leading-relaxed uppercase tracking-widest mb-2">
-          本服務結合 Google 搜尋與萬年曆數據庫。所有排盤與建議日期均經由即時資訊校驗。
+          排盤與日期功能完全基於本地高精度天文曆法計算。號碼僅供娛樂參考。
         </p>
-        <p className="text-[9px] text-stone-800">博彩有風險，號碼僅供參考。請支持負責任博彩。</p>
+        <p className="text-[9px] text-stone-800">博彩有風險，請支持負責任博彩。</p>
       </footer>
     </div>
   );

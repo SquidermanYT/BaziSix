@@ -2,44 +2,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-/**
- * Converts a solar date to Bazi pillars using Google Search to access reliable perpetual calendar data.
- */
-export const getBaziFromSolar = async (date: string, time: string) => {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `請利用 Google 搜尋查閱權威萬年曆資料，將以下公曆日期轉換為精確的八字四柱（年、月、日、時）：
-    日期：${date}
-    時間：${time}
-    
-    請特別注意：
-    1. 節氣的精確切換時間（決定月柱）。
-    2. 早子時與晚子時的區分（決定日柱）。
-    
-    請以 JSON 格式回傳。`,
-    config: {
-      tools: [{ googleSearch: {} }],
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          yearPillar: { type: Type.STRING },
-          monthPillar: { type: Type.STRING },
-          dayPillar: { type: Type.STRING },
-          hourPillar: { type: Type.STRING }
-        }
-      }
-    }
-  });
-  
-  const text = response.text;
-  if (!text) return {};
-  return JSON.parse(text);
-};
-
-/**
- * Analyzes the Bazi pillars for Indirect Wealth (Pian Cai) strength.
- */
 export const analyzeProvidedBazi = async (year: string, month: string, day: string, hour: string) => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -71,31 +33,35 @@ export const analyzeProvidedBazi = async (year: string, month: string, day: stri
   });
   
   const text = response.text;
-  if (!text) return {};
-  return JSON.parse(text);
+  return text ? JSON.parse(text) : {};
 };
 
 /**
- * Generates lucky numbers and betting time using Google Search to find actual upcoming Mark Six draw dates.
+ * 基於本地提供的候選日期生成開運號碼
  */
-export const getLuckyNumbers = async (user: any) => {
-  const today = new Date().toISOString().split('T')[0];
+export const getLuckyNumbers = async (user: any, candidates: any[]) => {
+  const candidatesJson = JSON.stringify(candidates);
+  
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `請執行以下步驟：
-    1. 使用 Google 搜尋找出香港賽馬會六合彩（Mark Six）在 ${today} 之後最近的攪珠日期。
-    2. 參考萬年曆，確認該建議日期的天干地支（日柱）。
-    3. 基於命主四柱：年：${user.yearPillar}, 月：${user.monthPillar}, 日：${user.dayPillar}, 時：${user.hourPillar}，結合其偏財運特徵，計算 7 個開運號碼。
+    contents: `命主八字：年：${user.yearPillar}, 月：${user.monthPillar}, 日：${user.dayPillar}, 時：${user.hourPillar}。
+    
+    以下是未來可能的六合彩攪珠日期及對應的本地萬年曆日柱：
+    ${candidatesJson}
+    
+    請執行以下命理分析：
+    1. 從候選日期中，挑選一個與命主「偏財運」最吻合、磁場最強的開運日期。
+    2. 基於該日的天干地支與命主命盤的生剋關係，計算 7 個 1-49 的靈數。
+    3. 提供一個最適合投注的時辰。
     
     請回傳：
     - numbers: 7 個 1-49 的數字。
     - bettingTime: 該日最適合命主的投注時辰。
-    - auspiciousDate: 建議日期（必須包含日期與當日干支，例如：2024-10-15 (甲辰日)）。
-    - explanation: 號碼與時辰的命理選擇邏輯。
+    - auspiciousDate: 建議日期（需包含日期、星期與日柱）。
+    - explanation: 號碼與日期挑選的命理邏輯。
     
     請以 JSON 格式回傳。`,
     config: {
-      tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -110,14 +76,5 @@ export const getLuckyNumbers = async (user: any) => {
   });
   
   const text = response.text;
-  if (!text) return { numbers: [], explanation: '', auspiciousDate: '', bettingTime: '' };
-  
-  const result = JSON.parse(text);
-  // Extract grounding sources for UI display
-  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-  if (groundingChunks) {
-    result.sources = groundingChunks.map((chunk: any) => chunk.web).filter(Boolean);
-  }
-  
-  return result;
+  return text ? JSON.parse(text) : { numbers: [], explanation: '', auspiciousDate: '', bettingTime: '' };
 };
