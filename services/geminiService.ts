@@ -1,7 +1,6 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 /**
  * Converts a solar date to Bazi pillars using Google Search to access reliable perpetual calendar data.
@@ -32,7 +31,10 @@ export const getBaziFromSolar = async (date: string, time: string) => {
       }
     }
   });
-  return JSON.parse(response.text ?? '{}');
+  
+  const text = response.text;
+  if (!text) return {};
+  return JSON.parse(text);
 };
 
 /**
@@ -67,7 +69,10 @@ export const analyzeProvidedBazi = async (year: string, month: string, day: stri
       }
     }
   });
-  return JSON.parse(response.text ?? '{}');
+  
+  const text = response.text;
+  if (!text) return {};
+  return JSON.parse(text);
 };
 
 /**
@@ -104,7 +109,10 @@ export const getLuckyNumbers = async (user: any) => {
     }
   });
   
-  const result = JSON.parse(response.text ?? '{}');
+  const text = response.text;
+  if (!text) return { numbers: [], explanation: '', auspiciousDate: '', bettingTime: '' };
+  
+  const result = JSON.parse(text);
   // Extract grounding sources for UI display
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
   if (groundingChunks) {

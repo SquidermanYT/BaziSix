@@ -1,7 +1,6 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 /**
  * 校驗使用者手動輸入的日柱是否與日期相符
@@ -33,7 +32,12 @@ export const verifyBaziPillar = async (
       }
     });
 
-    return JSON.parse(response.text ?? '{"isValid":true,"message":""}');
+    const responseText = response.text;
+    if (!responseText) {
+      return { isValid: true, message: "" };
+    }
+
+    return JSON.parse(responseText);
   } catch (error) {
     console.error("校驗失敗", error);
     return { isValid: true, message: "" };
@@ -91,7 +95,12 @@ export const validateAndFixBazi = async (
       }
     });
 
-    const result = JSON.parse(response.text ?? '{}');
+    const responseText = response.text;
+    if (!responseText) {
+      return { pillars: currentPillars, corrected: false };
+    }
+
+    const result = JSON.parse(responseText);
     if (!result.pillars) return { pillars: currentPillars, corrected: false };
     
     return {
