@@ -62,9 +62,10 @@ const App: React.FC = () => {
         birthDate,
         baziAnalysis
       });
-    } catch (err) {
-      console.error(err);
-      alert("分析失敗，請重試。");
+    } catch (err: any) {
+      console.error("排盤分析錯誤:", err);
+      // 顯示具體錯誤以便除錯
+      alert(`分析失敗: ${err.message || '未知錯誤'}`);
     } finally {
       setLoading(false);
     }
@@ -74,15 +75,12 @@ const App: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // 1. 使用本地庫獲取未來一週可能的攪珠日及日柱
       const candidates = getUpcomingMarkSixDates();
-      
-      // 2. 將候選日期傳給 Gemini 進行號碼生成與日期挑選
       const result = await getLuckyNumbers(user, candidates);
       setFortune(result);
-    } catch (err) {
-      console.error(err);
-      alert("計算號碼時發生錯誤，請檢查網路連線。");
+    } catch (err: any) {
+      console.error("號碼計算錯誤:", err);
+      alert(`計算號碼時發生錯誤: ${err.message || '請檢查網路連線'}`);
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,14 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// 在 Vite/Vercel 環境中，由 vite.config.ts 的 define 注入
+const API_KEY = process.env.API_KEY || '';
 
 export const analyzeProvidedBazi = async (year: string, month: string, day: string, hour: string) => {
+  if (!API_KEY) {
+    throw new Error("API Key 未設定，請在 Vercel 項目設置中添加 API_KEY 環境變數。");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `身為一位專業的八字命理大師，請深入分析以下四柱命盤的「偏財運」（橫財運）：
@@ -33,13 +39,16 @@ export const analyzeProvidedBazi = async (year: string, month: string, day: stri
   });
   
   const text = response.text;
-  return text ? JSON.parse(text) : {};
+  if (!text) throw new Error("AI 回傳內容為空");
+  return JSON.parse(text);
 };
 
-/**
- * 基於本地提供的候選日期生成開運號碼
- */
 export const getLuckyNumbers = async (user: any, candidates: any[]) => {
+  if (!API_KEY) {
+    throw new Error("API Key 未設定");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
   const candidatesJson = JSON.stringify(candidates);
   
   const response = await ai.models.generateContent({
