@@ -33,7 +33,7 @@ export const verifyBaziPillar = async (
       }
     });
 
-    return JSON.parse(response.text);
+    return JSON.parse(response.text ?? '{"isValid":true,"message":""}');
   } catch (error) {
     console.error("校驗失敗", error);
     return { isValid: true, message: "" };
@@ -91,7 +91,9 @@ export const validateAndFixBazi = async (
       }
     });
 
-    const result = JSON.parse(response.text);
+    const result = JSON.parse(response.text ?? '{}');
+    if (!result.pillars) return { pillars: currentPillars, corrected: false };
+    
     return {
       pillars: result.pillars,
       corrected: !result.isAccurate,

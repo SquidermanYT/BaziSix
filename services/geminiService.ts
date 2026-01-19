@@ -32,7 +32,7 @@ export const getBaziFromSolar = async (date: string, time: string) => {
       }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(response.text ?? '{}');
 };
 
 /**
@@ -67,7 +67,7 @@ export const analyzeProvidedBazi = async (year: string, month: string, day: stri
       }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(response.text ?? '{}');
 };
 
 /**
@@ -104,7 +104,7 @@ export const getLuckyNumbers = async (user: any) => {
     }
   });
   
-  const result = JSON.parse(response.text);
+  const result = JSON.parse(response.text ?? '{}');
   // Extract grounding sources for UI display
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
   if (groundingChunks) {
