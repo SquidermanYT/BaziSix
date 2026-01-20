@@ -7,6 +7,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [fortune, setFortune] = useState<FortuneResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>('solar');
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
@@ -16,6 +17,7 @@ const App: React.FC = () => {
     setLoading(true);
     setValidationMsg(null);
     setInfoMsg(null);
+    setError(null);
     
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
@@ -64,8 +66,7 @@ const App: React.FC = () => {
       });
     } catch (err: any) {
       console.error("排盤分析錯誤:", err);
-      // 顯示具體錯誤以便除錯
-      alert(`分析失敗: ${err.message || '未知錯誤'}`);
+      setError(err.message || '分析失敗');
     } finally {
       setLoading(false);
     }
@@ -74,13 +75,14 @@ const App: React.FC = () => {
   const calculateFortune = async () => {
     if (!user) return;
     setLoading(true);
+    setError(null);
     try {
       const candidates = getUpcomingMarkSixDates();
       const result = await getLuckyNumbers(user, candidates);
       setFortune(result);
     } catch (err: any) {
       console.error("號碼計算錯誤:", err);
-      alert(`計算號碼時發生錯誤: ${err.message || '請檢查網路連線'}`);
+      setError(err.message || '計算失敗，請檢查 API 設定或網路。');
     } finally {
       setLoading(false);
     }
@@ -146,6 +148,12 @@ const App: React.FC = () => {
               </>
             )}
 
+            {error && (
+              <div className="p-4 bg-red-900/20 border border-red-900/50 rounded-xl">
+                <p className="text-xs text-red-400 font-bold italic">⚠️ {error}</p>
+              </div>
+            )}
+
             {validationMsg && (
               <div className="p-4 bg-red-900/20 border border-red-900/50 rounded-xl">
                 <p className="text-xs text-red-400 font-medium italic">{validationMsg}</p>
@@ -176,7 +184,19 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-2xl mx-auto p-6 space-y-10">
-        {infoMsg && (
+        {error && (
+          <div className="bg-red-950/40 border border-red-900/50 p-6 rounded-3xl text-center">
+            <p className="text-red-400 text-sm font-bold mb-4">⚠️ {error}</p>
+            <button 
+              onClick={() => { setError(null); setUser(null); setFortune(null); }}
+              className="text-xs text-stone-400 underline uppercase tracking-widest"
+            >
+              返回重新輸入
+            </button>
+          </div>
+        )}
+
+        {infoMsg && !error && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
             <p className="text-xs text-amber-500 font-bold italic">✨ {infoMsg}</p>
           </div>
@@ -229,7 +249,7 @@ const App: React.FC = () => {
             <div className="py-10">
                <button 
                 onClick={calculateFortune}
-                disabled={loading}
+                disabled={loading || !!error}
                 className="group relative inline-flex items-center justify-center px-12 py-5 overflow-hidden font-bold rounded-full bg-amber-600 text-stone-950 shadow-2xl hover:bg-amber-500 transition-all active:scale-95 disabled:opacity-50"
               >
                 <span className="text-lg tracking-widest uppercase">尋找開運攪珠日</span>
@@ -252,26 +272,26 @@ const App: React.FC = () => {
                  <div className="grid md:grid-cols-2 gap-4 text-left">
                    <div className="bg-amber-950/20 border border-amber-900/30 p-5 rounded-2xl">
                      <p className="text-[10px] text-amber-600 font-black uppercase mb-2">最佳投注時辰</p>
-                     <p className="text-2xl font-serif font-black text-amber-100">{fortune.bettingTime}</p>
+                     <p className="text-2xl font-serif font-black text-amber-100">{fortune.bettingTime || '待定'}</p>
                    </div>
                    <div className="bg-amber-950/20 border border-amber-900/30 p-5 rounded-2xl">
                      <div className="flex justify-between items-start">
                         <p className="text-[10px] text-amber-600 font-black uppercase mb-2">建議開運日期</p>
                         <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1 rounded font-bold uppercase">本地數據庫計算</span>
                      </div>
-                     <p className="text-xl font-serif font-black text-amber-100">{fortune.auspiciousDate}</p>
+                     <p className="text-xl font-serif font-black text-amber-100">{fortune.auspiciousDate || '待定'}</p>
                    </div>
                  </div>
 
                  <div className="mt-8 text-left bg-stone-950/30 p-6 rounded-2xl border border-stone-800">
                    <h4 className="text-amber-500 text-xs font-black uppercase mb-3">開運策略分析</h4>
                    <p className="text-stone-400 text-sm leading-relaxed italic leading-loose">
-                     {fortune.explanation}
+                     {fortune.explanation || '系統未能生成分析，請重試。'}
                    </p>
                  </div>
                  
                  <button 
-                  onClick={() => { setFortune(null); setUser(null); setValidationMsg(null); setInfoMsg(null); }}
+                  onClick={() => { setFortune(null); setUser(null); setValidationMsg(null); setInfoMsg(null); setError(null); }}
                   className="mt-8 text-[10px] text-stone-600 uppercase font-black hover:text-amber-500 tracking-widest transition-colors"
                  >
                    重新排盤
@@ -288,7 +308,7 @@ const App: React.FC = () => {
              <div className="absolute inset-0 border-4 border-amber-900/30 rounded-full"></div>
              <div className="absolute inset-0 border-4 border-t-amber-500 rounded-full animate-spin"></div>
           </div>
-          <div className="text-center">
+          <div className="text-center px-6">
             <p className="text-amber-500 font-serif font-black tracking-[0.4em] text-sm animate-pulse">命理推算中...</p>
             <p className="text-stone-600 text-[10px] uppercase font-bold mt-2">完全由本地萬年曆數據驅動分析</p>
           </div>
