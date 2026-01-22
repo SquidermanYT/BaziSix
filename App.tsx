@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile, FortuneResult, InputMode } from './types';
 import { analyzeProvidedBazi, getLuckyNumbers } from './services/geminiService';
 import { getBaziLocally, validateDayPillarLocally, getUpcomingMarkSixDates } from './services/calendarService';
+import { Analytics } from '@vercel/analytics/react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -180,6 +181,7 @@ const App: React.FC = () => {
         <div className="text-right">
           <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">福主</p>
           <p className="text-sm font-bold text-amber-50">{user.name}</p>
+          <Analytics />
         </div>
       </header>
 
